@@ -1,0 +1,64 @@
+config {
+    type: "incremental",
+    schema: dataform.projectConfig.vars.TRF_DATA,
+    description: "a wide-format (pivoted) table of events data from Google Analytics (one row per event)",
+    bigquery: {
+        partitionBy: "event_date"
+    },
+    assertions: {
+        uniqueKey: ["event_id"]
+    },
+    tags: ["transform"]
+}
+
+SELECT
+  event_id,
+  event_date,
+  event_timestamp,
+  client_id,
+  user_id,
+  event_name,
+  continent,
+  country,
+  device_type,
+  browser,
+  operating_system,
+  -- rename various fields output by the pivot operation below:
+  val_page_location AS page_location,
+  val_page_referrer AS page_referrer,
+  ---- note we append the client ID to the session ID to ensure
+  ---- that the session ID will be globally unique:
+  CONCAT(val_ga_session_id, '-', client_id) AS session_id,
+  val_click_element_url AS link_click_target,
+  -- referrer information:
+  traffic_source,
+  traffic_medium,
+  traffic_campaign,
+  REGEXP_EXTRACT(val_page_location, 'utm_content=([^&]+)') AS traffic_referrer,
+FROM (
+-- Subquery allows WHERE + PIVOT in the same expression
+  SELECT
+    DISTINCT
+    -- ensure we get just one row per event in the pivot output
+    * EXCEPT(param_id)
+  FROM
+    ${
+        ref({
+            schema: dataform.projectConfig.vars.TRF_DATA,
+            name: "trf_events_params"
+        })
+    }
+    ) PIVOT(
+    /*
+    Pivoting typically requires aggregation of the returned values
+    over their parent rows.
+    Here we expect one value for each combination of param_key and
+    other fields, so non-deterministically selecting ANY_VALUE is
+    used to perform the 'aggregation'
+    */
+    ANY_VALUE(param_value) AS val FOR param_key IN (
+      -- list of keys for which we want corresponding values (PICK YOUR OWN):
+      'ga_session_id',
+      'page_location',
+      'page_referrer',
+      'click_element_url' ) )

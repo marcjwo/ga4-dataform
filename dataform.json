@@ -1,8 +1,15 @@
 {
-  "defaultSchema": "dataform",
-  "assertionSchema": "dataform_assertions",
+  "defaultSchema": "ga4_demo",
+  "assertionSchema": "ga4_demo_assertions",
   "warehouse": "bigquery",
   "defaultDatabase": "marcwo-playground",
-  "defaultLocation": "US"
+  "defaultLocation": "US",
+  "vars": {
+    "START_DATE": "20210101",
+    "PUBLIC_SCHEMA": "bigquery-public-data",
+    "RAW_DATA": "ga4_obfuscated_sample_ecommerce",
+    "STG_DATA": "ga4_demo_staging",
+    "TRF_DATA": "ga4_demo_transform",
+    "LDG_DATA": "ga4_demo"
+  }
 }
-    

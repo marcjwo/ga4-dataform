@@ -1,0 +1,35 @@
+config {
+    type: "incremental",
+    schema: dataform.projectConfig.vars.LDG_DATA,
+    description: "table containing records of Google Analytics events from GA4",
+    bigquery: {
+        partitionBy: "event_date"
+    },
+    assertions: {
+        uniqueKey: ["event_id"]
+    },
+    tags: ["landing"]
+}
+
+SELECT
+        event_id,
+        event_date,
+        event_timestamp,
+        client_id,
+        session_id,
+        user_id,
+        event_name,
+        REGEXP_EXTRACT(
+          page_location,
+          r'(?:[a-zA-Z]+://)?(?:[a-zA-Z0-9-.]+){1}(/[^\?#;&]+)' -- any protocol, any host, capture /path
+        ) AS page_path,
+        REGEXP_EXTRACT(page_location, r'\?([^#]*)') AS query_params,
+        REGEXP_EXTRACT(page_location, r'#(.*)') AS fragment,
+        link_click_target,
+      FROM
+        ${
+        ref({
+            schema: dataform.projectConfig.vars.TRF_DATA,
+            name: "trf_events_wide_format"
+        })
+    }

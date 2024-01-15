@@ -1,0 +1,61 @@
+-- The main purpose of the Staging Layer is to load source data into the DWH environment for further processing
+
+config {
+    type: "incremental",
+    schema: dataform.projectConfig.vars.STG_DATA,
+    description: "The raw events data is landed in BQ as a sharded table. Because partitioning >> sharding and wildcard queries dont allow for bigquery caching, its best to create a partitioned table thats incrementally loaded to be used.",
+    bigquery: {
+        partitionBy: "event_date"
+    },
+    assertions: {
+      uniqueKey: ["event_id"]
+    },
+    tags: ["staging"]
+}
+
+
+
+SELECT
+  -- generate surrogate event id
+  FARM_FINGERPRINT(CONCAT(event_timestamp,event_name, user_pseudo_id)) as event_id,
+  -- partitioning key:
+  PARSE_DATE('%Y%m%d', event_date) AS event_date,
+  -- equivalent to _table_suffix; convert to DATE type
+  -- other fields:
+  TIMESTAMP_MICROS(event_timestamp) AS event_timestamp,
+  event_name,
+  event_params,
+  -- Structure { key, value }
+  event_previous_timestamp,
+  event_value_in_usd,
+  event_bundle_sequence_id,
+  event_server_timestamp_offset,
+  user_pseudo_id AS client_id,
+  user_id,
+  privacy_info,
+  -- Structure { analytics_storage, ads_storage, users_transient_token }
+  user_properties,
+  -- Structure { key, value }
+  user_first_touch_timestamp,
+  user_ltv,
+  -- Structure { revenue, currency }
+  device,
+  -- Structure containing many fields
+  geo,
+  -- Structure containing many fields
+  app_info,
+  -- Structure containing many fields
+  traffic_source,
+  -- Structure { name, medium, source}
+  stream_id,
+  platform,
+  event_dimensions,
+  -- Structure { hostname }
+  ecommerce,
+  -- Structure containing many fields
+  items,
+  -- Structure containing many fields
+FROM
+  ${ref("events_*")}
+WHERE _TABLE_SUFFIX NOT LIKE '%intraday%'
+AND CAST(_TABLE_SUFFIX as INT64) >= ${ dataform.projectConfig.vars.START_DATE }
